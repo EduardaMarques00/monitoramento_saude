@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Medições</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    a { color: #555; font-size: 13px; }
+    h1 { margin-bottom: 16px; }
+
+    /* Barra topo */
+    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .topo input { padding: 7px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; width: 180px; }
+
+    /* Botões */
+    button { padding: 7px 16px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-novo { background: #4caf50; color: #fff; }
+    .btn-edit { background: #2196f3; color: #fff; font-size: 12px; padding: 4px 10px; }
+    .btn-del  { background: #f44336; color: #fff; font-size: 12px; padding: 4px 10px; }
+
+    /* Tabela */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f5f5f5; }
+
+    /* Mensagem */
+    .msg { font-size: 14px; color: #333; min-height: 20px; margin-bottom: 8px; }
+
+    /* Modal overlay */
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.ativo { display: flex; }
+
+    /* Modal caixa */
+    .modal {
+      background: #fff;
+      border-radius: 8px;
+      padding: 28px 32px;
+      width: 420px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 24px rgba(0,0,0,.2);
+    }
+    .modal h2 { margin: 0 0 20px; font-size: 18px; }
+    .campo { display: flex; flex-direction: column; margin-bottom: 12px; }
+    .campo label { font-size: 13px; color: #444; margin-bottom: 4px; }
+    .campo input { padding: 7px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+    .linha { display: flex; gap: 10px; }
+    .linha .campo { flex: 1; }
+    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .btn-cancelar { background: #e0e0e0; color: #333; }
+    .btn-salvar   { background: #4caf50; color: #fff; }
+    .erro-modal { font-size: 13px; color: #c62828; min-height: 18px; margin-top: 4px; }
+
+    /* Autocomplete */
+    .autocomplete-wrap { position: relative; }
+    .sugestoes {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      background: #fff; border: 1px solid #ccc; border-top: none;
+      border-radius: 0 0 4px 4px; max-height: 180px; overflow-y: auto;
+      z-index: 200; box-shadow: 0 4px 8px rgba(0,0,0,.1);
+    }
+    .sugestoes div {
+      padding: 8px 12px; cursor: pointer; font-size: 14px;
+    }
+    .sugestoes div:hover { background: #f0f0f0; }
+    .sugestoes .nome { font-weight: 500; }
+    .sugestoes .cpf  { font-size: 12px; color: #888; margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <a href="index.html">← Voltar</a>
+  <h1>Medições</h1>
+
+  <div class="topo">
+    <button class="btn-novo" onclick="abrirModal()">+ Nova medição</button>
+    <input id="f_paciente" placeholder="Filtrar por paciente" oninput="carregar()">
+    <input id="f_tipo" placeholder="Filtrar por tipo" oninput="carregar()">
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Paciente</th>
+        <th>Nome</th>
+        <th>Data/Hora</th>
+        <th>Tipo</th>
+        <th>Valor</th>
+        <th>Unidade</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tabela"></tbody>
+  </table>
+
+  <!-- Modal -->
+  <div class="overlay" id="overlay" onclick="fecharSeForaDoModal(event)">
+    <div class="modal">
+      <h2 id="modal-titulo">Nova medição</h2>
+
+      <div class="campo">
+        <label>Paciente *</label>
+        <div class="autocomplete-wrap">
+          <input id="m_paciente_nome" placeholder="Digite o nome do paciente..."
+                 oninput="buscarPacientes(this.value)" autocomplete="off">
+          <input type="hidden" id="m_paciente">
+          <div class="sugestoes" id="sugestoes"></div>
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo">
+          <label>Tipo de medição *</label>
+          <input id="m_tipo" placeholder="ex: glicemia">
+        </div>
+        <div class="campo">
+          <label>Unidade</label>
+          <input id="m_unidade" placeholder="ex: mg/dL">
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo">
+          <label>Valor</label>
+          <input id="m_valor" type="number" step="0.01">
+        </div>
+        <div class="campo">
+          <label>Data/Hora</label>
+          <input id="m_datahora" type="datetime-local">
+        </div>
+      </div>
+
+      <div class="erro-modal" id="erro-modal"></div>
+
+      <div class="modal-btns">
+        <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let modoEdicao = null; // null = incluindo, number = id_medicao sendo editado
+    let todosPacientes = [];
+
+    async function api(url, metodo = "GET", corpo = null) {
+      const opts = { method: metodo, headers: { "Content-Type": "application/json" } };
+      if (corpo) opts.body = JSON.stringify(corpo);
+      const r = await fetch(url, opts);
+      return r.json();
+    }
+
+    function msg(texto) { document.getElementById("msg").textContent = texto; }
+    function erroModal(texto) { document.getElementById("erro-modal").textContent = texto; }
+    function v(id) { return document.getElementById(id).value.trim(); }
+
+    // --- Autocomplete de paciente ---
+    async function carregarPacientes() {
+      todosPacientes = await api("/api/pacientes/");
+    }
+
+    function buscarPacientes(termo) {
+      const div = document.getElementById("sugestoes");
+      if (!termo.trim()) { div.style.display = "none"; return; }
+      const filtrados = todosPacientes.filter(p =>
+        (p.nome_completo ?? "").toLowerCase().includes(termo.toLowerCase()) ||
+        (p.cpf ?? "").includes(termo)
+      ).slice(0, 8);
+      if (!filtrados.length) { div.style.display = "none"; return; }
+
+      div.innerHTML = "";
+      filtrados.forEach(p => {
+        const item = document.createElement("div");
+        item.innerHTML = `<span class="nome">${p.nome_completo ?? "—"}</span><span class="cpf">${p.cpf ?? ""}</span>`;
+        item.addEventListener("mousedown", e => {
+          e.preventDefault(); // impede o input de perder o foco antes da seleção
+          selecionarPaciente(p.id_usuario, p.nome_completo ?? p.id_usuario);
+        });
+        div.appendChild(item);
+      });
+      div.style.display = "block";
+    }
+
+    function selecionarPaciente(id, nome) {
+      document.getElementById("m_paciente").value = id;
+      document.getElementById("m_paciente_nome").value = nome;
+      document.getElementById("sugestoes").style.display = "none";
+    }
+
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".autocomplete-wrap"))
+        document.getElementById("sugestoes").style.display = "none";
+    });
+    // --------------------------------
+
+    async function carregar() {
+      const params = new URLSearchParams({ paciente: v("f_paciente"), tipo: v("f_tipo") });
+      const dados = await api(`/api/medicoes/?${params}`);
+      document.getElementById("tabela").innerHTML = dados.map(m => `
+        <tr>
+          <td>${m.id_medicao}</td>
+          <td>${m.id_paciente}</td>
+          <td>${m.nome_completo ?? "—"}</td>
+          <td>${m.data_hora ?? "—"}</td>
+          <td>${m.tipo_medicao}</td>
+          <td>${m.valor ?? "—"}</td>
+          <td>${m.unidade ?? "—"}</td>
+          <td>
+            <button class="btn-edit" onclick='abrirEdicao(${JSON.stringify(m)})'>Editar</button>
+            <button class="btn-del"  onclick="remover(${m.id_medicao})">Remover</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function limparCampos() {
+      ["m_paciente", "m_paciente_nome", "m_tipo", "m_unidade", "m_valor", "m_datahora"]
+        .forEach(id => document.getElementById(id).value = "");
+      document.getElementById("sugestoes").style.display = "none";
+    }
+
+    function abrirModal() {
+      modoEdicao = null;
+      document.getElementById("modal-titulo").textContent = "Nova medição";
+      limparCampos();
+      erroModal("");
+      document.getElementById("overlay").classList.add("ativo");
+      document.getElementById("m_paciente_nome").focus();
+    }
+
+    function abrirEdicao(m) {
+      modoEdicao = m.id_medicao;
+      document.getElementById("modal-titulo").textContent = "Editar medição";
+      // Tenta mostrar o nome do paciente; cai no ID se não achar
+      const pac = todosPacientes.find(p => p.id_usuario === m.id_paciente);
+      document.getElementById("m_paciente").value = m.id_paciente ?? "";
+      document.getElementById("m_paciente_nome").value = pac ? (pac.nome_completo ?? m.id_paciente) : m.id_paciente;
+      document.getElementById("m_tipo").value = m.tipo_medicao ?? "";
+      document.getElementById("m_unidade").value = m.unidade ?? "";
+      document.getElementById("m_valor").value = m.valor ?? "";
+      document.getElementById("m_datahora").value = (m.data_hora ?? "").replace(" ", "T").slice(0, 16);
+      erroModal("");
+      document.getElementById("overlay").classList.add("ativo");
+    }
+
+    function fecharModal() {
+      document.getElementById("overlay").classList.remove("ativo");
+      erroModal("");
+    }
+
+    function fecharSeForaDoModal(e) {
+      if (e.target === document.getElementById("overlay")) fecharModal();
+    }
+
+    async function salvar() {
+      const idPaciente = v("m_paciente");
+      const tipo = v("m_tipo");
+      if (!idPaciente) { erroModal("Selecione um paciente da lista."); return; }
+      if (!tipo) { erroModal("Informe o tipo de medição."); return; }
+      erroModal("");
+
+      const corpo = {
+        id_paciente: idPaciente,
+        tipo_medicao: tipo,
+        unidade: v("m_unidade") || null,
+        valor: parseFloat(document.getElementById("m_valor").value) || null,
+        data_hora: v("m_datahora").replace("T", " ") || null,
+      };
+
+      let r;
+      if (modoEdicao) {
+        r = await api(`/api/medicoes/${modoEdicao}`, "PUT", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao atualizar."); return; }
+        msg("Medição atualizada.");
+      } else {
+        r = await api("/api/medicoes/", "POST", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao incluir."); return; }
+        msg("Medição incluída.");
+      }
+
+      fecharModal();
+      carregar();
+    }
+
+    async function remover(id) {
+      if (!confirm(`Remover medição ${id}?`)) return;
+      const r = await api(`/api/medicoes/${id}`, "DELETE");
+      msg(r.ok ? "Medição removida." : (r.erro ?? "Erro ao remover."));
+      carregar();
+    }
+
+    document.addEventListener("keydown", e => { if (e.key === "Escape") fecharModal(); });
+
+    carregarPacientes();
+    carregar();
+  </script>
+</body>
+</html>

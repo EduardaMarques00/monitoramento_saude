@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Medições</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    a { color: #555; font-size: 13px; }
+    h1 { margin-bottom: 4px; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 28px 0; }
+    button { padding: 7px 16px; font-size: 14px; border: none; border-radius: 4px;
+             background: #2196f3; color: #fff; cursor: pointer; margin-bottom: 16px; }
+    .grafico { max-height: 320px; }
+    h3 { margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <a href="index.html">← Voltar</a>
+  <h1>Relatório de Medições</h1>
+  <button onclick="carregar()">Atualizar</button>
+
+  <h3>Total por tipo</h3>
+  <canvas id="g_total" class="grafico"></canvas>
+
+  <hr>
+
+  <h3>Valor médio por tipo</h3>
+  <canvas id="g_media" class="grafico"></canvas>
+
+  <hr>
+
+  <h3>Evolução mensal</h3>
+  <canvas id="g_mensal" class="grafico"></canvas>
+
+  <script>
+    const graficos = {};
+
+    function renderizar(id, labels, dados, titulo, corFundo) {
+      if (graficos[id]) graficos[id].destroy();
+      graficos[id] = new Chart(document.getElementById(id), {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{ label: titulo, data: dados, backgroundColor: corFundo }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { maxRotation: 45 } } },
+        },
+      });
+    }
+
+    async function carregar() {
+      const dados = await fetch("/api/medicoes/relatorio").then(r => r.json());
+
+      renderizar(
+        "g_total",
+        dados.total_por_tipo.map(d => d.tipo_medicao),
+        dados.total_por_tipo.map(d => d.total),
+        "Total",
+        "#42a5f5"
+      );
+
+      renderizar(
+        "g_media",
+        dados.media_por_tipo.map(d => d.tipo_medicao),
+        dados.media_por_tipo.map(d => d.media_valor),
+        "Média",
+        "#66bb6a"
+      );
+
+      renderizar(
+        "g_mensal",
+        dados.por_mes.map(d => d.mes),
+        dados.por_mes.map(d => d.total),
+        "Total mensal",
+        "#ffa726"
+      );
+    }
+
+    carregar();
+  </script>
+</body>
+</html>
