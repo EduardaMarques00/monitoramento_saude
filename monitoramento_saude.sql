@@ -1,8 +1,5 @@
 --
 -- PostgreSQL database dump
---
-
-\restrict aA43F6twRo9Z0pF9BKPp7LhHK3XWUe9xwrOH70hb3daCd3ocdICWibrPnU3rcnX
 
 -- Dumped from database version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)
 -- Dumped by pg_dump version 18.4 (Ubuntu 18.4-1.pgdg22.04+1)
@@ -1290,10 +1287,4 @@ ALTER TABLE ONLY public."Profissional_Saude"
 ALTER TABLE ONLY public."Telefone_Usuario"
     ADD CONSTRAINT "Telefone_Usuario_id_usuario_fkey" FOREIGN KEY (id_usuario) REFERENCES public."Usuario"(id) DEFERRABLE;
 
-
---
--- PostgreSQL database dump complete
---
-
-\unrestrict aA43F6twRo9Z0pF9BKPp7LhHK3XWUe9xwrOH70hb3daCd3ocdICWibrPnU3rcnX
 

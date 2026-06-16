@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório de Consultas</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    a { color: #555; font-size: 13px; text-decoration: none; }
+    h1 { margin-bottom: 4px; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 28px 0; }
+    button { padding: 7px 16px; font-size: 14px; border: none; border-radius: 4px;
+             background: #2196f3; color: #fff; cursor: pointer; margin-bottom: 16px; }
+    button:hover { background: #1976d2; }
+    .grafico-container { max-width: 700px; margin-top: 20px; }
+    h3 { margin-bottom: 8px; color: #333; }
+  </style>
+</head>
+<body>
+  <a href="index.html">← Voltar</a>
+  <h1>Relatório de Consultas</h1>
+  <button onclick="carregar()">Atualizar Dados</button>
+
+  <h3>Consultas por Status</h3>
+  <div class="grafico-container">
+    <canvas id="grafico"></canvas>
+  </div>
+
+  <script>
+    // Variável global para armazenar a instância do gráfico
+    let meuGrafico = null;
+
+    async function carregar() {
+      try {
+        const r = await fetch("/api/consultas/relatorio");
+        if (!r.ok) throw new Error("Falha ao buscar os dados");
+        
+        const dados = await r.json();
+
+        // Extrai os labels (status) e os valores (total) do JSON recebido
+        const labels = dados.map(d => d.status || "Indefinido");
+        const valores = dados.map(d => d.total);
+
+        renderizarGrafico(labels, valores);
+      } catch (erro) {
+        console.error(erro);
+        alert("Erro ao carregar o relatório de consultas.");
+      }
+    }
+
+    function renderizarGrafico(labels, valores) {
+      const ctx = document.getElementById("grafico");
+
+      // Destrói o gráfico existente antes de criar um novo para evitar sobreposição (efeito fantasma)
+      if (meuGrafico) {
+        meuGrafico.destroy();
+      }
+
+      meuGrafico = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Total de Consultas",
+            data: valores,
+            backgroundColor: [
+              "rgba(76, 175, 80, 0.7)",  // Verde
+              "rgba(33, 150, 243, 0.7)", // Azul
+              "rgba(255, 152, 0, 0.7)",  // Laranja
+              "rgba(244, 67, 54, 0.7)"   // Vermelho
+            ],
+            borderColor: [
+              "#388E3C",
+              "#1976D2",
+              "#F57C00",
+              "#D32F2F"
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { 
+            legend: { display: false } // Oculta a legenda já que o título resolve
+          },
+          scales: { 
+            y: { 
+              beginAtZero: true,
+              ticks: { stepSize: 1 } // Força o eixo Y a pular de 1 em 1 (evita "1.5 consultas")
+            } 
+          }
+        }
+      });
+    }
+
+    // Carrega os dados automaticamente ao abrir a página
+    carregar();
+  </script>
+</body>
+</html>

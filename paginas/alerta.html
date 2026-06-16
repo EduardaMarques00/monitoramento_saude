@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Alertas</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    a { color: #555; font-size: 13px; text-decoration: none; }
+    h1 { margin-bottom: 16px; }
+
+    /* Barra topo */
+    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .topo input, .topo select { padding: 7px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; width: 180px; }
+
+    /* Botões */
+    button { padding: 7px 16px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-novo { background: #4caf50; color: #fff; }
+    .btn-edit { background: #2196f3; color: #fff; font-size: 12px; padding: 4px 10px; }
+    .btn-del  { background: #f44336; color: #fff; font-size: 12px; padding: 4px 10px; }
+
+    /* Tabela */
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f5f5f5; }
+
+    /* Mensagem */
+    .msg { font-size: 14px; color: #333; min-height: 20px; margin-bottom: 8px; }
+
+    /* Modal */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 10; align-items: center; justify-content: center; }
+    .overlay.ativo { display: flex; }
+    .modal { background: #fff; border-radius: 8px; padding: 28px 32px; width: 420px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,.2); }
+    .modal h2 { margin: 0 0 20px; font-size: 18px; }
+    .campo { display: flex; flex-direction: column; margin-bottom: 12px; }
+    .campo label { font-size: 13px; color: #444; margin-bottom: 4px; }
+    .campo input, .campo select { padding: 7px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+    .linha { display: flex; gap: 10px; }
+    .linha .campo { flex: 1; }
+    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .btn-cancelar { background: #e0e0e0; color: #333; }
+    .btn-salvar   { background: #4caf50; color: #fff; }
+    .erro-modal { font-size: 13px; color: #c62828; min-height: 18px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <a href="index.html">← Voltar</a>
+  <h1>Alertas</h1>
+
+  <div class="topo">
+    <button class="btn-novo" onclick="abrirModal()">+ Novo alerta</button>
+    <input id="f_tipo" placeholder="Filtrar por tipo" oninput="carregar()">
+    <select id="f_nivel" onchange="carregar()">
+      <option value="">Todos os níveis</option>
+      <option value="Baixo">Baixo</option>
+      <option value="Médio">Médio</option>
+      <option value="Alto">Alto</option>
+      <option value="Crítico">Crítico</option>
+    </select>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID Alerta</th>
+        <th>ID Medição</th>
+        <th>Tipo Alerta</th>
+        <th>Data/Hora</th>
+        <th>Nível Crítico</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tabela"></tbody>
+  </table>
+
+  <div class="overlay" id="overlay" onclick="fecharSeForaDoModal(event)">
+    <div class="modal">
+      <h2 id="modal-titulo">Novo alerta</h2>
+
+      <div class="campo">
+        <label>ID da Medição *</label>
+        <input id="m_medicao" type="number" placeholder="Ex: 104">
+      </div>
+      
+      <div class="campo">
+        <label>Tipo de Alerta *</label>
+        <input id="m_tipo" placeholder="Ex: Pressão Alta">
+      </div>
+
+      <div class="linha">
+        <div class="campo">
+          <label>Nível Crítico *</label>
+          <select id="m_nivel">
+            <option value="">Selecione...</option>
+            <option value="Baixo">Baixo</option>
+            <option value="Médio">Médio</option>
+            <option value="Alto">Alto</option>
+            <option value="Crítico">Crítico</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Data/Hora</label>
+          <input id="m_datahora" type="datetime-local">
+        </div>
+      </div>
+
+      <div class="erro-modal" id="erro-modal"></div>
+
+      <div class="modal-btns">
+        <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let modoEdicao = null; 
+
+    async function api(url, metodo = "GET", corpo = null) {
+      const opts = { method: metodo, headers: { "Content-Type": "application/json" } };
+      if (corpo) opts.body = JSON.stringify(corpo);
+      const r = await fetch(url, opts);
+      return r.json();
+    }
+
+    function msg(texto) { document.getElementById("msg").textContent = texto; }
+    function erroModal(texto) { document.getElementById("erro-modal").textContent = texto; }
+    function v(id) { return document.getElementById(id).value.trim(); }
+
+    async function carregar() {
+      const params = new URLSearchParams({ tipo: v("f_tipo"), nivel: v("f_nivel") });
+      const dados = await api(`/api/alertas/?${params}`);
+      
+      document.getElementById("tabela").innerHTML = dados.map(a => `
+        <tr>
+          <td>${a.id_alerta}</td>
+          <td>${a.id_medicao}</td>
+          <td>${a.tipo_alerta}</td>
+          <td>${a.data_hora ? a.data_hora.replace("T", " ") : "—"}</td>
+          <td>${a.nivel_critico}</td>
+          <td>
+            <button class="btn-edit" onclick='abrirEdicao(${JSON.stringify(a)})'>Editar</button>
+            <button class="btn-del"  onclick="remover(${a.id_alerta})">Remover</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function limparCampos() {
+      ["m_medicao", "m_tipo", "m_nivel", "m_datahora"].forEach(id => document.getElementById(id).value = "");
+    }
+
+    function abrirModal() {
+      modoEdicao = null;
+      document.getElementById("modal-titulo").textContent = "Novo alerta";
+      limparCampos();
+      erroModal("");
+      document.getElementById("overlay").classList.add("ativo");
+      document.getElementById("m_medicao").focus();
+    }
+
+    function abrirEdicao(a) {
+      modoEdicao = a.id_alerta;
+      document.getElementById("modal-titulo").textContent = "Editar alerta";
+      document.getElementById("m_medicao").value = a.id_medicao ?? "";
+      document.getElementById("m_tipo").value = a.tipo_alerta ?? "";
+      document.getElementById("m_nivel").value = a.nivel_critico ?? "";
+      document.getElementById("m_datahora").value = (a.data_hora ?? "").replace(" ", "T").slice(0, 16);
+      
+      erroModal("");
+      document.getElementById("overlay").classList.add("ativo");
+    }
+
+    function fecharModal() {
+      document.getElementById("overlay").classList.remove("ativo");
+      erroModal("");
+    }
+
+    function fecharSeForaDoModal(e) {
+      if (e.target === document.getElementById("overlay")) fecharModal();
+    }
+
+    async function salvar() {
+      const idMedicao = v("m_medicao");
+      const tipo = v("m_tipo");
+      const nivel = v("m_nivel");
+
+      if (!idMedicao) { erroModal("Informe o ID da Medição."); return; }
+      if (!tipo) { erroModal("Informe o tipo de alerta."); return; }
+      if (!nivel) { erroModal("Selecione o nível crítico."); return; }
+      
+      erroModal("");
+
+      const corpo = {
+        id_medicao: parseInt(idMedicao),
+        tipo_alerta: tipo,
+        nivel_critico: nivel,
+        data_hora: v("m_datahora").replace("T", " ") || null,
+      };
+
+      let r;
+      if (modoEdicao) {
+        r = await api(`/api/alertas/${modoEdicao}`, "PUT", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao atualizar."); return; }
+        msg("Alerta atualizado.");
+      } else {
+        r = await api("/api/alertas/", "POST", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao incluir."); return; }
+        msg("Alerta incluído.");
+      }
+
+      fecharModal();
+      carregar();
+    }
+
+    async function remover(id) {
+      if (!confirm(`Remover alerta ${id}?`)) return;
+      const r = await api(`/api/alertas/${id}`, "DELETE");
+      msg(r.ok ? "Alerta removido." : (r.erro ?? "Erro ao remover."));
+      carregar();
+    }
+
+    document.addEventListener("keydown", e => { if (e.key === "Escape") fecharModal(); });
+
+    carregar();
+  </script>
+</body>
+</html>

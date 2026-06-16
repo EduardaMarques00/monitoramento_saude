@@ -7,7 +7,7 @@ psycopg2 (via SQLAlchemy) para execução de comandos.
 from sqlalchemy import create_engine
 
 DB_USER = "postgres"
-DB_PASSWORD = "postgres"
+DB_PASSWORD = "123456"
 DB_HOST = "localhost"
 DB_PORT = "5432"
 DB_NAME = "monitoramento_saude"

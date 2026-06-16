@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Medições</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    a {
+      color: #555;
+      font-size: 13px;
+    }
+
+    h1 {
+      margin-bottom: 16px;
+    }
+
+    /* Barra topo */
+    .topo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .topo input {
+      padding: 7px 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 180px;
+    }
+
+    /* Botões */
+    button {
+      padding: 7px 16px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-novo {
+      background: #4caf50;
+      color: #fff;
+    }
+
+    .btn-edit {
+      background: #2196f3;
+      color: #fff;
+      font-size: 12px;
+      padding: 4px 10px;
+    }
+
+    .btn-del {
+      background: #f44336;
+      color: #fff;
+      font-size: 12px;
+      padding: 4px 10px;
+    }
+
+    /* Tabela */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    th {
+      background: #f5f5f5;
+    }
+
+    /* Mensagem */
+    .msg {
+      font-size: 14px;
+      color: #333;
+      min-height: 20px;
+      margin-bottom: 8px;
+    }
+
+    /* Modal overlay */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .4);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overlay.ativo {
+      display: flex;
+    }
+
+    /* Modal caixa */
+    .modal {
+      background: #fff;
+      border-radius: 8px;
+      padding: 28px 32px;
+      width: 420px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, .2);
+    }
+
+    .modal h2 {
+      margin: 0 0 20px;
+      font-size: 18px;
+    }
+
+    .campo {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 12px;
+    }
+
+    .campo label {
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 4px;
+    }
+
+    .campo input {
+      padding: 7px 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .linha {
+      display: flex;
+      gap: 10px;
+    }
+
+    .linha .campo {
+      flex: 1;
+    }
+
+    .modal-btns {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .btn-cancelar {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .btn-salvar {
+      background: #4caf50;
+      color: #fff;
+    }
+
+    .erro-modal {
+      font-size: 13px;
+      color: #c62828;
+      min-height: 18px;
+      margin-top: 4px;
+    }
+
+    /* Autocomplete */
+    .autocomplete-wrap {
+      position: relative;
+    }
+
+    .sugestoes {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 180px;
+      overflow-y: auto;
+      z-index: 200;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, .1);
+    }
+
+    .sugestoes div {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .sugestoes div:hover {
+      background: #f0f0f0;
+    }
+
+    .sugestoes .nome {
+      font-weight: 500;
+    }
+
+    .sugestoes .cpf {
+      font-size: 12px;
+      color: #888;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+
+<body>
+  <a href="index.html">← Voltar</a>
+  <h1>Consultas</h1>
+
+  <div class="topo">
+    <button class="btn-novo" onclick="abrirModal()">+ Nova consulta</button>
+    <input id="f_paciente" placeholder="Filtrar por aciente" oninput="carregar()">
+    <input id="f_status" placeholder="Filtrar por status" oninput="carregar()">
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Paciente</th>
+        <th>Profissional</th>
+        <th>Data/Hora</th>
+        <th>Moodalidade</th>
+        <th>Status</th>
+        <th>Anotações</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tabela"></tbody>
+  </table>
+
+  <!-- Modal -->
+  <div class="overlay" id="overlay" onclick="fecharSeForaDoModal(event)">
+    <div class="modal">
+
+      <h2 id="modal-titulo">Nova consulta</h2>
+
+      <div class="campo">
+        <label>ID Paciente *</label>
+        <input id="m_paciente" placeholder="USR001">
+      </div>
+
+      <div class="campo">
+        <label>ID Profissional *</label>
+        <input id="m_profissional" placeholder="USR011">
+      </div>
+
+      <div class="campo">
+        <label>Data/Hora *</label>
+        <input id="m_datahora" type="datetime-local">
+      </div>
+
+      <div class="campo">
+        <label>Modalidade *</label>
+        <input id="m_modalidade" placeholder="Presencial">
+      </div>
+
+      <div class="campo">
+        <label>Status *</label>
+        <input id="m_status" placeholder="Realizada">
+      </div>
+
+      <div class="campo">
+        <label>Anotações</label>
+        <input id="m_anotacoes">
+      </div>
+
+      <div class="erro-modal" id="erro-modal"></div>
+
+      <div class="modal-btns">
+        <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let modoEdicao = null; // null = incluindo, number = id_medicao sendo editado
+
+    async function api(url, metodo = "GET", corpo = null) {
+      const opts = { method: metodo, headers: { "Content-Type": "application/json" } };
+      if (corpo) opts.body = JSON.stringify(corpo);
+      const r = await fetch(url, opts);
+      return r.json();
+    }
+
+    function msg(texto) { document.getElementById("msg").textContent = texto; }
+    function erroModal(texto) { document.getElementById("erro-modal").textContent = texto; }
+    function v(id) { return document.getElementById(id).value.trim(); }
+
+    // --- Autocomplete de paciente ---
+    async function carregarPacientes() {
+      todosPacientes = await api("/api/consultas/");
+    }
+
+    function buscarPacientes(termo) {
+      const div = document.getElementById("sugestoes");
+      if (!termo.trim()) { div.style.display = "none"; return; }
+      const filtrados = todosPacientes.filter(p =>
+        (p.nome_completo ?? "").toLowerCase().includes(termo.toLowerCase()) ||
+        (p.cpf ?? "").includes(termo)
+      ).slice(0, 8);
+      if (!filtrados.length) { div.style.display = "none"; return; }
+
+      div.innerHTML = "";
+      filtrados.forEach(p => {
+        const item = document.createElement("div");
+        item.innerHTML = `<span class="nome">${p.nome_completo ?? "—"}</span><span class="cpf">${p.cpf ?? ""}</span>`;
+        item.addEventListener("mousedown", e => {
+          e.preventDefault(); // impede o input de perder o foco antes da seleção
+          selecionarPaciente(p.id_usuario, p.nome_completo ?? p.id_usuario);
+        });
+        div.appendChild(item);
+      });
+      div.style.display = "block";
+    }
+
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".autocomplete-wrap"))
+        document.getElementById("sugestoes").style.display = "none";
+    });
+    // --------------------------------
+
+    async function carregar() {
+
+      const params = new URLSearchParams({
+        paciente: v("f_paciente"),
+        status: v("f_status")
+      });
+
+      const dados = await api(`/api/consultas/?${params}`);
+
+      document.getElementById("tabela").innerHTML =
+        dados.map(c => `
+      <tr>
+        <td>${c.paciente ?? c.id_paciente}</td>
+        <td>${c.id_profissional}</td>
+        <td>${c.data_hora ?? "—"}</td>
+        <td>${c.modalidade ?? "—"}</td>
+        <td>${c.status ?? "—"}</td>
+        <td>${c.anotacoes ?? "—"}</td>
+        <td>
+          <button class="btn-edit"
+            onclick='abrirEdicao(${JSON.stringify(c)})'>
+            Editar
+          </button>
+
+          <button class="btn-del"
+            onclick="remover(${c.id_consulta})">
+            Remover
+          </button>
+        </td>
+      </tr>
+    `).join("");
+    }
+
+    function limparCampos() {
+
+      [
+        "m_paciente",
+        "m_profissional",
+        "m_datahora",
+        "m_modalidade",
+        "m_status",
+        "m_anotacoes"
+      ].forEach(id =>
+        document.getElementById(id).value = ""
+      );
+    }
+
+    function abrirModal() {
+      modoEdicao = null;
+      document.getElementById("modal-titulo").textContent = "Nova consulta";
+      limparCampos();
+      erroModal("");
+      document.getElementById("overlay").classList.add("ativo");
+      document.getElementById("m_paciente_nome").focus();
+    }
+
+    function abrirEdicao(c) {
+
+      modoEdicao = c.id_consulta;
+
+      document.getElementById("modal-titulo").textContent =
+        "Editar consulta";
+
+      document.getElementById("m_paciente").value =
+        c.id_paciente ?? "";
+
+      document.getElementById("m_profissional").value =
+        c.id_profissional ?? "";
+
+      document.getElementById("m_datahora").value =
+        (c.data_hora ?? "").replace(" ", "T").slice(0, 16);
+
+      document.getElementById("m_modalidade").value =
+        c.modalidade ?? "";
+
+      document.getElementById("m_status").value =
+        c.status ?? "";
+
+      document.getElementById("m_anotacoes").value =
+        c.anotacoes ?? "";
+
+      erroModal("");
+      document.getElementById("overlay").classList.add("ativo");
+    }
+
+    function fecharModal() {
+      document.getElementById("overlay").classList.remove("ativo");
+      erroModal("");
+    }
+
+    function fecharSeForaDoModal(e) {
+      if (e.target === document.getElementById("overlay")) fecharModal();
+    }
+
+    async function salvar() {
+      const idPaciente = v("m_paciente");
+      const modalidade = v("m_modalidade");
+      if (!idPaciente) { erroModal("Selecione um paciente da lista."); return; }
+      if (!modalidade) { erroModal("Informe a modalidade."); return; }
+
+      const corpo = {
+
+        id_paciente: v("m_paciente"),
+
+        id_profissional: v("m_profissional"),
+
+        data_hora: v("m_datahora").replace("T", " "),
+
+        modalidade: v("m_modalidade"),
+
+        status: v("m_status"),
+
+        anotacoes: v("m_anotacoes")
+      };
+
+      let r;
+      if (modoEdicao) {
+        r = await api(`/api/consultas/${modoEdicao}`, "PUT", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao atualizar."); return; }
+        msg("Medição atualizada.");
+      } else {
+        r = await api("/api/consultas/", "POST", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao incluir."); return; }
+        msg("Medição incluída.");
+      }
+
+      fecharModal();
+      carregar();
+    }
+
+    async function remover(id) {
+      if (!confirm(`Remover medição ${id}?`)) return;
+      const r = await api(`/api/consultas/${id}`, "DELETE");
+      msg(r.ok ? "Medição removida." : (r.erro ?? "Erro ao remover."));
+      carregar();
+    }
+
+    document.addEventListener("keydown", e => { if (e.key === "Escape") fecharModal(); });
+
+    carregar();
+  </script>
+</body>
+
+</html>
