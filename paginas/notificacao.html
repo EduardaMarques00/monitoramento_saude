@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Notificações</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    a { color: #555; font-size: 13px; }
+    h1 { margin-bottom: 16px; }
+
+    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .topo input, .topo select { padding: 7px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+    .topo input { width: 200px; }
+
+    button { padding: 7px 16px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-novo  { background: #4caf50; color: #fff; }
+    .btn-edit  { background: #2196f3; color: #fff; font-size: 12px; padding: 4px 10px; }
+    .btn-del   { background: #f44336; color: #fff; font-size: 12px; padding: 4px 10px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f5f5f5; }
+
+    .badge {
+      display: inline-block; font-size: 11px; padding: 2px 8px;
+      border-radius: 10px; font-weight: bold;
+    }
+    .badge-sim { background: #e8f5e9; color: #2e7d32; }
+    .badge-nao { background: #fce4ec; color: #b71c1c; }
+
+    .msg { font-size: 14px; color: #333; min-height: 20px; margin-bottom: 8px; }
+
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.ativo { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 8px;
+      padding: 28px 32px;
+      width: 480px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 24px rgba(0,0,0,.2);
+    }
+    .modal h2 { margin: 0 0 16px; font-size: 18px; }
+    .campo { display: flex; flex-direction: column; margin-bottom: 12px; }
+    .campo label { font-size: 13px; color: #444; margin-bottom: 4px; }
+    .campo input, .campo textarea, .campo select {
+      padding: 7px 10px; font-size: 14px;
+      border: 1px solid #ccc; border-radius: 4px;
+      font-family: sans-serif;
+    }
+    .campo textarea { resize: vertical; min-height: 80px; }
+    .linha { display: flex; gap: 10px; }
+    .linha .campo { flex: 1; }
+    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .btn-cancelar { background: #e0e0e0; color: #333; }
+    .btn-salvar   { background: #4caf50; color: #fff; }
+    .erro-modal { font-size: 13px; color: #c62828; min-height: 18px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <a href="index.html">← Voltar</a>
+  <h1>Notificações</h1>
+
+  <div class="topo">
+    <button class="btn-novo" onclick="abrirModal()">+ Nova notificação</button>
+    <input id="filtro-usuario" placeholder="Buscar por usuário" oninput="carregar()">
+    <input id="filtro-tipo" placeholder="Buscar por tipo" oninput="carregar()">
+    <select id="filtro-lida" onchange="carregar()">
+      <option value="">Todas</option>
+      <option value="true">Lidas</option>
+      <option value="false">Não lidas</option>
+    </select>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Usuário</th>
+        <th>Tipo</th>
+        <th>Mensagem</th>
+        <th>Canal</th>
+        <th>Envio</th>
+        <th>Realizada</th>
+        <th>Lida</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tabela"></tbody>
+  </table>
+
+  <!-- Modal -->
+  <div class="overlay" id="overlay" onclick="fecharSeForaDoModal(event)">
+    <div class="modal" id="modal">
+      <h2 id="modal-titulo">Nova notificação</h2>
+
+      <div class="linha">
+        <div class="campo">
+          <label>ID do usuário *</label>
+          <input id="m_id_usuario" placeholder="ex: USR001">
+        </div>
+        <div class="campo">
+          <label>Tipo *</label>
+          <select id="m_tipo">
+            <option value="Alerta">Alerta</option>
+            <option value="Lembrete">Lembrete</option>
+            <option value="Relatório">Relatório</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="campo">
+        <label>Mensagem *</label>
+        <textarea id="m_mensagem" placeholder="ex: Glicemia acima do limite..."></textarea>
+      </div>
+      <div class="linha">
+        <div class="campo">
+          <label>Data/hora envio</label>
+          <input id="m_data_hora" type="datetime-local">
+        </div>
+        <div class="campo">
+          <label>Canal</label>
+          <select id="m_canal">
+            <option value="">—</option>
+            <option value="App">App</option>
+            <option value="SMS">SMS</option>
+            <option value="Email">Email</option>
+          </select>
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo">
+          <label>Realizada</label>
+          <select id="m_realizada">
+            <option value="false">Não</option>
+            <option value="true">Sim</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Lida</label>
+          <select id="m_lida">
+            <option value="false">Não</option>
+            <option value="true">Sim</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="erro-modal" id="erro-modal"></div>
+
+      <div class="modal-btns">
+        <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let modoEdicao = null;
+
+    async function api(url, metodo = "GET", corpo = null) {
+      const opts = { method: metodo, headers: { "Content-Type": "application/json" } };
+      if (corpo) opts.body = JSON.stringify(corpo);
+      const r = await fetch(url, opts);
+      return r.json();
+    }
+
+    function msg(texto) { document.getElementById("msg").textContent = texto; }
+
+    function badge(val) {
+      return val
+        ? '<span class="badge badge-sim">Sim</span>'
+        : '<span class="badge badge-nao">Não</span>';
+    }
+
+    async function carregar() {
+      const usuario = document.getElementById("filtro-usuario").value;
+      const tipo = document.getElementById("filtro-tipo").value;
+      const lida = document.getElementById("filtro-lida").value;
+      const dados = await api(
+        `/api/notificacoes/?usuario=${encodeURIComponent(usuario)}&tipo=${encodeURIComponent(tipo)}&lida=${encodeURIComponent(lida)}`
+      );
+      document.getElementById("tabela").innerHTML = dados.map(n => `
+        <tr>
+          <td>${n.id_notificacao}</td>
+          <td>${n.nome_completo ?? n.id_usuario}</td>
+          <td>${n.tipo_notificacao ?? "—"}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${n.mensagem ?? ""}">${n.mensagem ?? "—"}</td>
+          <td>${n.canal ?? "—"}</td>
+          <td>${n.data_hora_envio ?? "—"}</td>
+          <td>${badge(n.realizada)}</td>
+          <td>${badge(n.lida)}</td>
+          <td>
+            <button class="btn-edit" onclick='abrirEdicao(${JSON.stringify(n)})'>Editar</button>
+            <button class="btn-del"  onclick="remover(${n.id_notificacao})">Remover</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function limparCampos() {
+      document.getElementById("m_id_usuario").value = "";
+      document.getElementById("m_tipo").value = "Alerta";
+      document.getElementById("m_mensagem").value = "";
+      document.getElementById("m_data_hora").value = "";
+      document.getElementById("m_canal").value = "";
+      document.getElementById("m_realizada").value = "false";
+      document.getElementById("m_lida").value = "false";
+    }
+
+    function abrirModal() {
+      modoEdicao = null;
+      document.getElementById("modal-titulo").textContent = "Nova notificação";
+      limparCampos();
+      document.getElementById("overlay").classList.add("ativo");
+      document.getElementById("m_id_usuario").focus();
+    }
+
+    function abrirEdicao(n) {
+      modoEdicao = n.id_notificacao;
+      document.getElementById("modal-titulo").textContent = `Editar notificação #${n.id_notificacao}`;
+      document.getElementById("m_id_usuario").value = n.id_usuario ?? "";
+      document.getElementById("m_tipo").value = n.tipo_notificacao ?? "Alerta";
+      document.getElementById("m_mensagem").value = n.mensagem ?? "";
+      document.getElementById("m_data_hora").value = n.data_hora_envio ? n.data_hora_envio.replace(" ", "T").slice(0,16) : "";
+      document.getElementById("m_canal").value = n.canal ?? "";
+      document.getElementById("m_realizada").value = n.realizada ? "true" : "false";
+      document.getElementById("m_lida").value = n.lida ? "true" : "false";
+      document.getElementById("overlay").classList.add("ativo");
+    }
+
+    function erroModal(texto) { document.getElementById("erro-modal").textContent = texto; }
+
+    function fecharModal() {
+      document.getElementById("overlay").classList.remove("ativo");
+      erroModal("");
+    }
+
+    function fecharSeForaDoModal(e) {
+      if (e.target === document.getElementById("overlay")) fecharModal();
+    }
+
+    async function salvar() {
+      const id_usuario = document.getElementById("m_id_usuario").value.trim();
+      const tipo_notificacao = document.getElementById("m_tipo").value;
+      const mensagem = document.getElementById("m_mensagem").value.trim();
+
+      if (!id_usuario || !mensagem) {
+        erroModal("Preencha os campos obrigatórios: ID do usuário e mensagem.");
+        return;
+      }
+      erroModal("");
+
+      const dh = document.getElementById("m_data_hora").value;
+      const corpo = {
+        id_usuario,
+        tipo_notificacao,
+        mensagem,
+        data_hora_envio: dh ? dh.replace("T", " ") : null,
+        canal: document.getElementById("m_canal").value || null,
+        realizada: document.getElementById("m_realizada").value === "true",
+        lida: document.getElementById("m_lida").value === "true",
+      };
+
+      let r;
+      if (modoEdicao) {
+        r = await api(`/api/notificacoes/${modoEdicao}`, "PUT", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao atualizar."); return; }
+        msg("Notificação atualizada.");
+      } else {
+        r = await api("/api/notificacoes/", "POST", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao incluir."); return; }
+        msg("Notificação incluída.");
+      }
+
+      fecharModal();
+      carregar();
+    }
+
+    async function remover(id) {
+      if (!confirm(`Remover notificação #${id}?`)) return;
+      const r = await api(`/api/notificacoes/${id}`, "DELETE");
+      msg(r.ok ? "Notificação removida." : (r.erro ?? "Erro ao remover."));
+      carregar();
+    }
+
+    document.addEventListener("keydown", e => { if (e.key === "Escape") fecharModal(); });
+
+    carregar();
+  </script>
+</body>
+</html>

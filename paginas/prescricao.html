@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Prescrições</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    a { color: #555; font-size: 13px; }
+    h1 { margin-bottom: 16px; }
+
+    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .topo input { padding: 7px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; width: 220px; }
+
+    button { padding: 7px 16px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-novo  { background: #4caf50; color: #fff; }
+    .btn-edit  { background: #2196f3; color: #fff; font-size: 12px; padding: 4px 10px; }
+    .btn-del   { background: #f44336; color: #fff; font-size: 12px; padding: 4px 10px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f5f5f5; }
+
+    .msg { font-size: 14px; color: #333; min-height: 20px; margin-bottom: 8px; }
+
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.ativo { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 8px;
+      padding: 28px 32px;
+      width: 520px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 24px rgba(0,0,0,.2);
+    }
+    .modal h2 { margin: 0 0 8px; font-size: 18px; }
+    .modal h3 { margin: 16px 0 8px; font-size: 14px; color: #666; border-top: 1px solid #eee; padding-top: 12px; }
+    .campo { display: flex; flex-direction: column; margin-bottom: 12px; }
+    .campo label { font-size: 13px; color: #444; margin-bottom: 4px; }
+    .campo input, .campo textarea, .campo select {
+      padding: 7px 10px; font-size: 14px;
+      border: 1px solid #ccc; border-radius: 4px;
+      font-family: sans-serif;
+    }
+    .campo textarea { resize: vertical; min-height: 70px; }
+    .linha { display: flex; gap: 10px; }
+    .linha .campo { flex: 1; }
+    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .btn-cancelar { background: #e0e0e0; color: #333; }
+    .btn-salvar   { background: #4caf50; color: #fff; }
+    .erro-modal { font-size: 13px; color: #c62828; min-height: 18px; margin-top: 4px; }
+
+    /* Medicamentos */
+    .med-lista { margin-top: 6px; }
+    .med-item {
+      display: flex; gap: 6px; align-items: center;
+      margin-bottom: 6px; background: #f9f9f9;
+      padding: 6px 8px; border-radius: 4px; font-size: 13px;
+    }
+    .med-item span { flex: 1; }
+    .btn-rem-med { background: #f44336; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 3px; }
+    .add-med { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .add-med input { padding: 5px 8px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 80px; }
+    .btn-add-med { background: #2196f3; color: #fff; font-size: 12px; padding: 5px 12px; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <a href="index.html">← Voltar</a>
+  <h1>Prescrições</h1>
+
+  <div class="topo">
+    <button class="btn-novo" onclick="abrirModal()">+ Nova prescrição</button>
+    <input id="filtro-paciente" placeholder="Buscar por paciente" oninput="carregar()">
+    <input id="filtro-profissional" placeholder="Buscar por profissional" oninput="carregar()">
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Paciente</th>
+        <th>Profissional</th>
+        <th>Data emissão</th>
+        <th>Validade</th>
+        <th>Observações</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tabela"></tbody>
+  </table>
+
+  <!-- Modal -->
+  <div class="overlay" id="overlay" onclick="fecharSeForaDoModal(event)">
+    <div class="modal" id="modal">
+      <h2 id="modal-titulo">Nova prescrição</h2>
+
+      <h3>Dados da prescrição</h3>
+      <div class="linha">
+        <div class="campo">
+          <label>ID do paciente *</label>
+          <input id="m_id_paciente" placeholder="ex: USR001">
+        </div>
+        <div class="campo">
+          <label>ID do profissional *</label>
+          <input id="m_id_profissional" placeholder="ex: USR011">
+        </div>
+      </div>
+      <div class="linha">
+        <div class="campo">
+          <label>Data de emissão *</label>
+          <input id="m_data_emissao" type="datetime-local">
+        </div>
+        <div class="campo">
+          <label>Validade</label>
+          <input id="m_validade" type="date">
+        </div>
+      </div>
+      <div class="campo">
+        <label>Observações</label>
+        <textarea id="m_observacoes" placeholder="ex: Tomar em jejum..."></textarea>
+      </div>
+
+      <h3>Medicamentos</h3>
+      <div class="med-lista" id="med-lista"></div>
+      <div class="add-med">
+        <input id="med_nome" placeholder="Nome *">
+        <input id="med_dosagem" placeholder="Dosagem">
+        <input id="med_frequencia" placeholder="Frequência">
+        <input id="med_duracao" placeholder="Duração">
+        <button class="btn-add-med" onclick="adicionarMed()">+ Add</button>
+      </div>
+
+      <div class="erro-modal" id="erro-modal"></div>
+
+      <div class="modal-btns">
+        <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let modoEdicao = null;
+    let medicamentos = [];
+
+    async function api(url, metodo = "GET", corpo = null) {
+      const opts = { method: metodo, headers: { "Content-Type": "application/json" } };
+      if (corpo) opts.body = JSON.stringify(corpo);
+      const r = await fetch(url, opts);
+      return r.json();
+    }
+
+    function msg(texto) { document.getElementById("msg").textContent = texto; }
+
+    async function carregar() {
+      const pac = document.getElementById("filtro-paciente").value;
+      const prof = document.getElementById("filtro-profissional").value;
+      const dados = await api(`/api/prescricoes/?paciente=${encodeURIComponent(pac)}&profissional=${encodeURIComponent(prof)}`);
+      document.getElementById("tabela").innerHTML = dados.map(p => `
+        <tr>
+          <td>${p.id_prescricao}</td>
+          <td>${p.nome_paciente ?? p.id_paciente}</td>
+          <td>${p.nome_profissional ?? p.id_profissional}</td>
+          <td>${p.data_emissao ?? "—"}</td>
+          <td>${p.validade ?? "—"}</td>
+          <td>${p.observacoes ?? "—"}</td>
+          <td>
+            <button class="btn-edit" onclick="abrirEdicao(${p.id_prescricao})">Editar</button>
+            <button class="btn-del"  onclick="remover(${p.id_prescricao})">Remover</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function renderMeds() {
+      document.getElementById("med-lista").innerHTML = medicamentos.map((m, i) => `
+        <div class="med-item">
+          <span><b>${m.nome}</b>${m.dosagem ? " — " + m.dosagem : ""}${m.frequencia ? " — " + m.frequencia : ""}${m.duracao ? " — " + m.duracao : ""}</span>
+          <button class="btn-rem-med" onclick="removerMed(${i})">✕</button>
+        </div>`).join("");
+    }
+
+    function adicionarMed() {
+      const nome = document.getElementById("med_nome").value.trim();
+      if (!nome) { erroModal("Informe o nome do medicamento."); return; }
+      erroModal("");
+      medicamentos.push({
+        nome,
+        dosagem: document.getElementById("med_dosagem").value.trim() || null,
+        frequencia: document.getElementById("med_frequencia").value.trim() || null,
+        duracao: document.getElementById("med_duracao").value.trim() || null,
+      });
+      ["med_nome","med_dosagem","med_frequencia","med_duracao"].forEach(id => document.getElementById(id).value = "");
+      renderMeds();
+    }
+
+    function removerMed(i) { medicamentos.splice(i, 1); renderMeds(); }
+
+    function limparCampos() {
+      ["m_id_paciente","m_id_profissional","m_data_emissao","m_validade","m_observacoes"].forEach(id => document.getElementById(id).value = "");
+      medicamentos = [];
+      renderMeds();
+    }
+
+    function abrirModal() {
+      modoEdicao = null;
+      document.getElementById("modal-titulo").textContent = "Nova prescrição";
+      limparCampos();
+      document.getElementById("overlay").classList.add("ativo");
+      document.getElementById("m_id_paciente").focus();
+    }
+
+    async function abrirEdicao(id) {
+      const p = await api(`/api/prescricoes/${id}`);
+      modoEdicao = id;
+      document.getElementById("modal-titulo").textContent = `Editar prescrição #${id}`;
+      document.getElementById("m_id_paciente").value = p.id_paciente ?? "";
+      document.getElementById("m_id_profissional").value = p.id_profissional ?? "";
+      document.getElementById("m_data_emissao").value = p.data_emissao ? p.data_emissao.replace(" ", "T").slice(0,16) : "";
+      document.getElementById("m_validade").value = p.validade ?? "";
+      document.getElementById("m_observacoes").value = p.observacoes ?? "";
+      medicamentos = p.medicamentos ?? [];
+      renderMeds();
+      document.getElementById("overlay").classList.add("ativo");
+    }
+
+    function erroModal(texto) { document.getElementById("erro-modal").textContent = texto; }
+
+    function fecharModal() {
+      document.getElementById("overlay").classList.remove("ativo");
+      erroModal("");
+    }
+
+    function fecharSeForaDoModal(e) {
+      if (e.target === document.getElementById("overlay")) fecharModal();
+    }
+
+    async function salvar() {
+      const id_paciente = document.getElementById("m_id_paciente").value.trim();
+      const id_profissional = document.getElementById("m_id_profissional").value.trim();
+      const data_emissao = document.getElementById("m_data_emissao").value;
+
+      if (!id_paciente || !id_profissional || !data_emissao) {
+        erroModal("Preencha os campos obrigatórios: ID paciente, ID profissional e data de emissão.");
+        return;
+      }
+      erroModal("");
+
+      const corpo = {
+        id_paciente,
+        id_profissional,
+        data_emissao: data_emissao.replace("T", " "),
+        validade: document.getElementById("m_validade").value || null,
+        observacoes: document.getElementById("m_observacoes").value.trim() || null,
+        medicamentos,
+      };
+
+      let r;
+      if (modoEdicao) {
+        r = await api(`/api/prescricoes/${modoEdicao}`, "PUT", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao atualizar."); return; }
+        msg("Prescrição atualizada.");
+      } else {
+        r = await api("/api/prescricoes/", "POST", corpo);
+        if (!r.ok) { erroModal(r.erro ?? "Erro ao incluir."); return; }
+        msg(`Prescrição incluída com ID ${r.id_prescricao}.`);
+      }
+
+      fecharModal();
+      carregar();
+    }
+
+    async function remover(id) {
+      if (!confirm(`Remover prescrição #${id}?`)) return;
+      const r = await api(`/api/prescricoes/${id}`, "DELETE");
+      msg(r.ok ? "Prescrição removida." : (r.erro ?? "Erro ao remover."));
+      carregar();
+    }
+
+    document.addEventListener("keydown", e => { if (e.key === "Escape") fecharModal(); });
+
+    carregar();
+  </script>
+</body>
+</html>
